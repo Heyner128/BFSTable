@@ -143,28 +143,30 @@ class BFSTable {
             } else {
                 a.textContent = i;
                 li.id = 'button' + i;
-                a.onclick = function(event){
-                    this.#activePage = Number(event.target.textContent);
-                    const initialElement = this.#paginationSize*(this.#activePage-1)+1;
-                    const finalElement = initialElement + (this.#paginationSize-1);
-                    ul.childNodes.forEach(
-                        (li)=>{
-                            const liid = li.id.match(/\d+/)?li.id.match(/\d+/)[0]:null
-                            if(liid==event.target.textContent) {
-                                li.classList.add('active');
-                            } else {
-                                li.classList.remove('active');
-                            }
-                        }
-                    )
-                    this.#updateTable(initialElement,finalElement);
-                }.bind(this)
+                a.onclick = function(event) {this.#numbersHandler(event, ul, li)}.bind(this);
             }
             
             li.appendChild(a);
             ul.appendChild(li);
         }
         return ul;
+    }
+
+    #numbersHandler(event, ul, li) {
+        this.#activePage = Number(event.target.textContent);
+        const initialElement = this.#paginationSize*(this.#activePage-1)+1;
+        const finalElement = initialElement + (this.#paginationSize-1);
+        ul.childNodes.forEach(
+            (li)=>{
+                const liid = li.id.match(/\d+/)?li.id.match(/\d+/)[0]:null
+                if(liid==event.target.textContent) {
+                    li.classList.add('active');
+                } else {
+                    li.classList.remove('active');
+                }
+            }
+        )
+        this.#updateTable(initialElement,finalElement);
     }
 
     #addDragAndDrop(tr) {
