@@ -5,26 +5,39 @@ import {dropdown} from 'bootstrap';
 
 class BFSTable {
     
-    #table = document.querySelector('table[data-bfs-table]');
-    #paginationSizes = [10,20,30]
-    #paginationSize = this.#paginationSizes[0];
-    #showingElements = [1,this.#paginationSize];
-    #showingPages = null;
-    #maxPages = null;
-    #activePage = 1;
-
+    #table;
+    #paginationSizes = [10,20,30];
+    #paginationSize;
+    #showingElements;
+    #showingPages;
+    #maxPages;
+    #activePage;
+    #linesStorage;
+    
     constructor(dataJSON) {
         this.dataObject = JSON.parse(dataJSON);    
-        this.appendTable();
+        this.appendTable(this.#paginationSizes[0]);
     } 
 
     
-    appendTable() {
+    appendTable(paginationSize) {
+
+        this.#table = document.querySelector('table[data-bfs-table]');
+        this.#table.innerHTML = '';
+        const pagBtn = document.querySelector('#pagination-size-button');
+        if(pagBtn) pagBtn.textContent = paginationSize;
+        this.#table.parentNode.removeChild(this.#table.nextSibling);
+        this.#paginationSize = paginationSize;
+        this.#showingElements = [1,this.#paginationSize];
+        this.#showingPages = null;
+        this.#maxPages = null;
+        this.#activePage = 1;
+        this.#linesStorage  = {};
         this.#table.className = 'table position-relative';
         this.#table.appendChild(this.#createTableHead());
         this.#table.appendChild(this.#createTableBody(this.#showingElements[0],this.#showingElements[1]));
-        if(this.dataObject.length > this.#paginationSize) this.#table.insertAdjacentElement('afterend',this.#createTableCaption());
-        
+        if(this.dataObject.length > this.#paginationSize) this.#table.insertAdjacentElement('afterend',this.#createTableCaption(paginationSize));
+        this.#maxPages = Math.ceil(this.dataObject.length/this.#paginationSize);
 
     }
 
@@ -70,28 +83,29 @@ class BFSTable {
         return tr;
     }
 
-    #createTableCaption() {
+    #createTableCaption(paginationSize) {
         const container = document.createElement('div');
         container.className = 'd-flex justify-content-between';
-        container.appendChild(this.#createTablePaginationInfo(this.#paginationSizes,''));
+        container.appendChild(this.#createTablePaginationInfo(this.#paginationSizes,'', paginationSize));
         container.appendChild(this.#createPagination(Math.ceil(this.dataObject.length/this.#paginationSize)));
         return container;
     }
 
-    #updateTable(start, end) {
+    #updateTable(start, end, actualElement) {
         const tableBody = document.querySelector('table[data-bfs-table] tbody');
-        this.#table.removeChild(tableBody);
+        const deletedLines  = this.#table.removeChild(tableBody);
+        this.#linesStorage[this.#activePage] = deletedLines;
         this.#showingElements = [start,end];
-        this.#table.appendChild(this.#createTableBody(this.#showingElements[0],this.#showingElements[1]))
+        this.#table.appendChild((this.#linesStorage[actualElement])?this.#linesStorage[actualElement]:this.#createTableBody(this.#showingElements[0],this.#showingElements[1]))
 
     }
 
-    #createTablePaginationInfo(sizes, text) {
+    #createTablePaginationInfo(sizes, text, paginationSize) {
         const container = document.createElement('div');
         container.className = 'dropdown';
         container.textContent = text;
 
-        const button = this.#createPaginationInfoButton(sizes);
+        const button = this.#createPaginationInfoButton(paginationSize);
         const ul = this.#createPaginationInfoDropDown(sizes, button);
         
         container.appendChild(button);
@@ -100,12 +114,13 @@ class BFSTable {
         return container;
     }
 
-    #createPaginationInfoButton(sizes) {
+    #createPaginationInfoButton(paginationSize) {
         const button = document.createElement('button');
+        button.id='pagination-size-button';
         button.className = 'btn btn-secondary dropdown-toggle';
         button.type = 'button';
         button.setAttribute('data-bs-toggle','dropdown');
-        button.textContent = sizes[0];
+        button.textContent = paginationSize;
 
         return button;
     }
@@ -137,7 +152,7 @@ class BFSTable {
     #dropdownHandler(button, event) {
         button.textContent=event.target.textContent;
         this.#paginationSize = Number(button.textContent);
-        this.#updateTable(1,this.#paginationSize);
+        this.appendTable(this.#paginationSize);
     }
 
     #createPagination(numberOfPages) {
@@ -149,24 +164,30 @@ class BFSTable {
         this.#showingPages = [1, pages-1];
 
         for(let i=0;i<=pages;i++) {
-            const li = document.createElement('li');
-            li.className = 'page-item';
-
-            const a = document.createElement('a');
-            a.className = 'page-link';
-            a.href="#";
-
-            this.#addPaginationEventListeners(i, a, ul, li, pages);
-
-            if(i==1) li.classList.add('active');
-            li.appendChild(a);
-            ul.appendChild(li);
+            
+            ul.appendChild(this.#createPaginationButton(i, pages));
         }
 
         return ul;
     }
 
-    #addPaginationEventListeners(i, a, ul, li, pages) {
+    #createPaginationButton(i, pages) {
+        const li = document.createElement('li');
+        li.className = 'page-item';
+        if(i>0 && i<pages) li.id=`button${i}`;
+
+        const a = document.createElement('a');
+        a.className = 'page-link';
+        a.href="#";
+
+        this.#addPaginationEventListeners(i, a, pages);
+
+        if(i==1) li.classList.add('active');
+        li.appendChild(a);
+        return li;
+    }
+
+    #addPaginationEventListeners(i, a, pages) {
         if(i==0) {
             a.innerHTML = '&laquo;'
             a.onclick = function(event) {this.#previousButtonHandler(event)}.bind(this);
@@ -175,37 +196,32 @@ class BFSTable {
             a.onclick = function(event) {this.#nextButtonHandler(event)}.bind(this);
         } else {
             a.textContent = i;
-            li.id = 'button' + i;
-            a.onclick = function(event) {this.#numbersButtonsHandler(event, ul, pages)}.bind(this);
-            
+            a.onclick = function(event) {this.#numbersButtonsHandler(event)}.bind(this);
         }
         return;
     }
 
-    #numbersButtonsHandler(event, ul) {
-        this.#activePage = Number(event.target.textContent);
-        const initialElement = this.#paginationSize*(this.#activePage-1)+1;
-        const finalElement = initialElement + (this.#paginationSize-1);
+    #numbersButtonsHandler(event) {
 
-        const initialPage = this.#showingPages[0];
-        const finalPage = this.#showingPages[1]; 
-        ul.childNodes.forEach(
-            (li)=>{
-                const liid = li.id.match(/\d+/)?li.id.match(/\d+/)[0]:null;
-                if(liid==event.target.textContent && Number(event.target.textContent)!=(finalPage)) {
-                    li.classList.add('active');
-                } else if(Number(event.target.textContent)!=(finalPage)) {
-                    li.classList.remove('active');
-                } else if(liid){
-                    li.firstChild.textContent = Number(li.firstChild.textContent) +1; 
-                    li.id=`button${Number(liid)+1}`;
-                    this.#showingPages[0]=initialPage+1;
-                    this.#showingPages[1]=finalPage+1;
-                    
-                }
-            }
-        )
-        this.#updateTable(initialElement,finalElement);
+        event.target.parentNode.classList.add('active');
+        document.querySelector('#button'+this.#activePage).classList.remove('active');
+        const initialElement = this.#paginationSize*(Number(event.target.textContent)-1)+1;
+        const finalElement = initialElement + (this.#paginationSize-1);
+        if(event.target.textContent==this.#showingPages[1] && event.target.textContent<this.#maxPages) {
+            this.#showingPages[0]+=1;
+            this.#showingPages[1]+=1;
+            document.querySelector('#button'+(this.#showingPages[0]-1)).remove();
+            document.querySelector('#button'+(this.#showingPages[1]-1)).insertAdjacentElement('afterend',this.#createPaginationButton(this.#showingPages[1],this.#showingPages[1]+1));
+        }
+        if(event.target.textContent==this.#showingPages[0] && event.target.textContent>1) {
+            this.#showingPages[0]-=1;
+            this.#showingPages[1]-=1;
+            document.querySelector('#button'+(this.#showingPages[1]+1)).remove();
+            document.querySelector('#button'+(this.#showingPages[0]+1)).insertAdjacentElement('beforebegin',this.#createPaginationButton(this.#showingPages[0],this.#showingPages[0]+1)).classList.remove('active');
+        }
+
+        this.#updateTable(initialElement,finalElement, event.target.textContent);
+        this.#activePage = Number(event.target.textContent);
     }
 
     #nextButtonHandler(event) {
